@@ -12,7 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +25,7 @@ public class StatsAggregationService {
     private final UrlRepository urlRepository; // Inject the repository here!
 
     private static final String EVENT_QUEUE = "events:url:clicks";
+    private final UrlStatsRepository urlStatsRepository;
 
     @Scheduled(fixedDelay = 5000) // Runs every 5 seconds
     @Transactional
@@ -37,17 +40,16 @@ public class StatsAggregationService {
 
         List<ClickEvent> clickEvents = new ArrayList<>();
 
+        // 1. Parse and validate against the DB
         for (String event : rawEvents) {
             String[] parts = event.split("\\|");
             if (parts.length >= 4) {
                 String shortCode = parts[0];
-
-                // Perform the query here in the background!
                 Optional<Url> urlOpt = urlRepository.findByShortCode(shortCode);
 
                 if (urlOpt.isPresent()) {
                     clickEvents.add(ClickEvent.builder()
-                            .urlId(urlOpt.get().getId()) // Extract the ID
+                            .urlId(urlOpt.get().getId())
                             .ipAddress(parts[1])
                             .userAgent(parts[2])
                             .referrer(parts[3])
@@ -56,9 +58,18 @@ public class StatsAggregationService {
             }
         }
 
-        // Bulk insert the verified events
         if (!clickEvents.isEmpty()) {
+            // 2. Save the raw audit logs
             clickRepository.saveAll(clickEvents);
+
+            // 3. THE STATS LOGIC: Group clicks by URL ID to optimize DB calls
+            Map<Long, Long> clicksPerUrl = clickEvents.stream()
+                    .collect(Collectors.groupingBy(ClickEvent::getUrlId, Collectors.counting()));
+
+            // 4. Update the statistics dashboard table
+            clicksPerUrl.forEach((urlId, count) -> {
+                urlStatsRepository.incrementClicksByCount(urlId, count);
+            });
         }
     }
 }
