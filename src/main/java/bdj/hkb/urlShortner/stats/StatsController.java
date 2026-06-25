@@ -1,0 +1,24 @@
+package bdj.hkb.urlShortner.stats;
+
+
+import bdj.hkb.urlShortner.stats.dto.StatsResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/stats")
+@RequiredArgsConstructor
+public class StatsController {
+
+    private final StatsService statsService;
+
+    @GetMapping("/{shortCode}")
+    public ResponseEntity<StatsResponse> getStatsSummary(@PathVariable String shortCode) {
+        StatsResponse response = statsService.getStatsSummary(shortCode);
+        return ResponseEntity.ok(response);
+    }
+}
