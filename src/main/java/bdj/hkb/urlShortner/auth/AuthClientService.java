@@ -4,6 +4,7 @@ import bdj.hkb.urlShortner.auth.dto.*;
 import bdj.hkb.urlShortner.auth.internalDto.AuthServiceLoginRequest;
 import bdj.hkb.urlShortner.auth.internalDto.AuthServiceOAuthRequest;
 import bdj.hkb.urlShortner.auth.internalDto.AuthServiceSignupRequest;
+import bdj.hkb.urlShortner.exceptionHandler.AuthServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;

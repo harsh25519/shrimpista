@@ -30,5 +30,5 @@ jwt:
 
 auth-service:
   base-url: ${AUTH_SERVICE_URL:http://localhost:8080}
-  client-id: ${AUTH_CLIENT_ID:00000000-0000-0000-0000-000000000001}
-  client-secret: ${AUTH_CLIENT_SECRET}
+  client-id: cd8cd833-750c-4179-8668-7de0f49682db
+  client-secret: d8mxS9YYC5buDvbNqWaG9Tw6abwrBflY6dfjL3rLtAc
