@@ -2,9 +2,8 @@ package bdj.hkb.urlShortner.stats;
 
 import bdj.hkb.urlShortner.click.ClickEvent;
 import bdj.hkb.urlShortner.click.ClickEventRepository;
-import bdj.hkb.urlShortner.url.Url;
-import bdj.hkb.urlShortner.url.UrlRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -13,63 +12,69 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StatsAggregationService {
 
     private final StringRedisTemplate redisTemplate;
     private final ClickEventRepository clickRepository;
-    private final UrlRepository urlRepository; // Inject the repository here!
+    private final UrlStatsRepository statsRepository;
 
     private static final String EVENT_QUEUE = "events:url:clicks";
-    private final UrlStatsRepository urlStatsRepository;
+    private static final int BATCH_SIZE = 50;
 
-    @Scheduled(fixedDelay = 5000) // Runs every 5 seconds
+    @Scheduled(fixedDelay = 60000)
     @Transactional
     public void consumeClickEvents() {
-        Long queueSize = redisTemplate.opsForList().size(EVENT_QUEUE);
-        if (queueSize == null || queueSize == 0) return;
-
-        List<String> rawEvents = redisTemplate.opsForList().range(EVENT_QUEUE, 0, queueSize - 1);
-        redisTemplate.opsForList().trim(EVENT_QUEUE, queueSize, -1);
-
-        if (rawEvents == null || rawEvents.isEmpty()) return;
-
         List<ClickEvent> clickEvents = new ArrayList<>();
 
-        // 1. Parse and validate against the DB
-        for (String event : rawEvents) {
-            String[] parts = event.split("\\|");
-            if (parts.length >= 4) {
-                String shortCode = parts[0];
-                Optional<Url> urlOpt = urlRepository.findByShortCode(shortCode);
+        // 1. Thread-Safe Popping (Eliminates LTRIM race condition)
+        for (int i = 0; i < BATCH_SIZE; i++) {
+            // rightPop pulls and removes the oldest event atomically
+            String rawEvent = redisTemplate.opsForList().rightPop(EVENT_QUEUE);
+            if (rawEvent == null) {
+                break; // Queue is empty, stop pulling
+            }
 
-                if (urlOpt.isPresent()) {
+            String[] parts = rawEvent.split("\\|");
+            if (parts.length >= 4) {
+                try {
                     clickEvents.add(ClickEvent.builder()
-                            .urlId(urlOpt.get().getId())
-                            .ipAddress(parts[1])
+                            .urlId(Long.parseLong(parts[0])) // Now we have the ID directly!
+                            .ipAddress(parts[1])             // This is already hashed
                             .userAgent(parts[2])
                             .referrer(parts[3])
                             .build());
+                } catch (NumberFormatException e) {
+                    log.error("Malformed URL ID in click event: {}", parts[0]);
                 }
             }
         }
 
-        if (!clickEvents.isEmpty()) {
-            // 2. Save the raw audit logs
-            clickRepository.saveAll(clickEvents);
-
-            // 3. THE STATS LOGIC: Group clicks by URL ID to optimize DB calls
-            Map<Long, Long> clicksPerUrl = clickEvents.stream()
-                    .collect(Collectors.groupingBy(ClickEvent::getUrlId, Collectors.counting()));
-
-            // 4. Update the statistics dashboard table
-            clicksPerUrl.forEach((urlId, count) -> {
-                urlStatsRepository.incrementClicksByCount(urlId, count);
-            });
+        if (clickEvents.isEmpty()) {
+            return;
         }
+
+        // 2. Save the raw audit logs
+        clickRepository.saveAll(clickEvents);
+
+        // 3. Group clicks by URL ID to optimize DB calls
+        Map<Long, Long> clicksPerUrl = clickEvents.stream()
+                .collect(Collectors.groupingBy(ClickEvent::getUrlId, Collectors.counting()));
+
+        // 4. Fetch HLL stats and update the DB
+        clicksPerUrl.forEach((urlId, newClicks) -> {
+            // Get the absolute total of unique visitors directly from HyperLogLog
+            Long uniqueVisitors = redisTemplate.opsForHyperLogLog().size("click:unique:" + urlId);
+            long safeUniqueVisitors = uniqueVisitors != null ? uniqueVisitors : 0L;
+
+            // Execute the Upsert
+            statsRepository.incrementClicksAndUpdateUnique(urlId, newClicks, safeUniqueVisitors);
+        });
+
+        log.debug("Processed batch of {} clicks for {} URLs", clickEvents.size(), clicksPerUrl.size());
     }
 }
