@@ -46,11 +46,13 @@ public class AuthClientService {
     // LOGIN
     // -------------------------------------------------------------------
     public AuthResponse login(UserLoginRequest request) {
+        System.out.println("hahahahahha");
         AuthServiceLoginRequest authRequest = new AuthServiceLoginRequest(
                 request.email(),
                 request.password(),
                 clientId
         );
+        System.out.println("hahahahahha");
 
         return post("/auth/login", authRequest, AuthResponse.class);
     }
@@ -102,6 +104,7 @@ public class AuthClientService {
     // -------------------------------------------------------------------
     private <T> T post(String path, Object body, Class<T> responseType) {
         try {
+            System.out.println("hahahahahha");
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Object> entity = new HttpEntity<>(body, headers);
@@ -112,6 +115,7 @@ public class AuthClientService {
                     entity,
                     responseType
             );
+            System.out.println("hahahahahha");
 
             return response.getBody();
         } catch (HttpClientErrorException e) {
