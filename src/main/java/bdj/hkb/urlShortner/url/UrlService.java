@@ -2,15 +2,18 @@ package bdj.hkb.urlShortner.url;
 
 import bdj.hkb.urlShortner.security.dto.JwtPrincipal;
 import bdj.hkb.urlShortner.url.dto.UrlCreateRequest;
+import bdj.hkb.urlShortner.url.dto.UrlDashboardResponse;
 import bdj.hkb.urlShortner.url.dto.UrlResponse;
 import bdj.hkb.urlShortner.util.Base62Encoder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,18 +28,14 @@ public class UrlService {
     private static final Duration CACHE_TTL = Duration.ofDays(7); // Keep hot links in RAM for 7 days
 
     @Transactional
-    public UrlResponse createShortLink(UrlCreateRequest request, Authentication auth) {
+    public UrlResponse createShortLink(UrlCreateRequest request, UUID userId) {
 
         String urlHash = generateHash(request.longUrl());
-        UUID userId = null;
 
-        // Soft-Auth: If the user provides a token, we grab the ID.
-        // If not, we proceed with userId = null (anonymous).
-        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof JwtPrincipal principal) {
-            userId = principal.userId();
-        }
         // 1. Check for existing link
-        Optional<Url> existingUrl = urlRepository.findByLongUrlHash(urlHash);
+        Optional<Url> existingUrl = userId != null
+                ? urlRepository.findByLongUrlHashAndUserId(urlHash, userId)
+                : urlRepository.findByLongUrlHashAndUserIdIsNull(urlHash);
 
         if (existingUrl.isPresent()) {
             Url url = existingUrl.get();
@@ -102,6 +101,13 @@ public class UrlService {
         Url url = urlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new RuntimeException("URL not found")); // We'll upgrade this to a custom exception later
 
+        if (url.getDeletedAt() != null) {
+            throw new UrlNotFoundException("This link is no longer available");
+        }
+        if (url.getExpiresAt() != null && url.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new UrlExpiredException("This link has expired");
+        }
+
         if (!url.getIsActive()) {
             throw new RuntimeException("This link has been disabled");
         }
@@ -110,6 +116,25 @@ public class UrlService {
         redisTemplate.opsForValue().set(cacheKey, url.getLongUrl(), CACHE_TTL);
 
         return url.getLongUrl();
+    }
+
+    public Page<UrlDashboardResponse> getUserUrls(JwtPrincipal principal, int page, int size) {
+
+        if(principal == null){
+            throw new RuntimeException("Unauthenticated user");
+        }
+
+        UUID userId = principal.userId();
+        PageRequest pageRequest = PageRequest.of(page, size);
+
+        Page<Url> userUrls = urlRepository.findAllByUserIdOrderByCreatedAtDesc(userId, pageRequest);
+
+        return userUrls.map(url -> new UrlDashboardResponse(
+                url.getShortCode(),
+                url.getTitle(),
+                url.getCreatedAt(),
+                url.getIsActive()
+        ));
     }
 
     private String generateHash(String longUrl) {

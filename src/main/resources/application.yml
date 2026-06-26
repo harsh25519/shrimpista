@@ -27,3 +27,8 @@ server:
 
 jwt:
   secret: 2qaf7BS4drDUvKsjPDR7flYFSkR0jBW48O8/IusbytBVqZ4KAxPrJAL0ZUc9+rXtDsWLY0vIJ+ZBSS8IpuDD0w==
+
+auth-service:
+  base-url: ${AUTH_SERVICE_URL:http://localhost:8080}
+  client-id: ${AUTH_CLIENT_ID:00000000-0000-0000-0000-000000000001}
+  client-secret: ${AUTH_CLIENT_SECRET}
