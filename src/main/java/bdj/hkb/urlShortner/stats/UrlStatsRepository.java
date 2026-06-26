@@ -18,7 +18,7 @@ public interface UrlStatsRepository extends JpaRepository<UrlStats, Long> {
             unique_visitors = :uniqueCount, -- Overwrite with the exact HLL count from Redis
             last_updated_at = NOW()
         """, nativeQuery = true)
-    void incrementClicksAndUpdateUnique(
+    void upsertStats(
             @Param("urlId") Long urlId,
             @Param("clickCount") Long clickCount,
             @Param("uniqueCount") Long uniqueCount
