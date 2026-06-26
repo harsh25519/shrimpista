@@ -30,6 +30,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.GONE, ex.getMessage());
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return buildResponse(HttpStatus.GONE, ex.getMessage());
+    }
+
     @ExceptionHandler(UrlExpiredException.class)
     public ResponseEntity<ErrorResponse> handleUrlExpired(UrlExpiredException ex) {
         return buildResponse(HttpStatus.GONE, ex.getMessage());

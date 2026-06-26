@@ -31,7 +31,7 @@ public class ClickIngestionService {
                 (referrer != null ? referrer : "unknown")
         );
 
-        redisTemplate.opsForList().rightPush("events:url:clicks", payload);
+        redisTemplate.opsForList().rightPush(EVENT_QUEUE, payload);
     }
 
     private String hashIp(String ip) {

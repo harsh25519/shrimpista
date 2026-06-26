@@ -5,6 +5,7 @@ import bdj.hkb.urlShortner.security.dto.JwtPrincipal;
 import bdj.hkb.urlShortner.url.dto.UrlCreateRequest;
 import bdj.hkb.urlShortner.url.dto.UrlDashboardResponse;
 import bdj.hkb.urlShortner.url.dto.UrlResponse;
+import bdj.hkb.urlShortner.url.dto.UrlUpdateRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -84,5 +85,16 @@ public class UrlController {
             @PathVariable Long urlId,
             @AuthenticationPrincipal JwtPrincipal principal) {
         return ResponseEntity.ok(urlService.toggleActive(urlId, principal));
+    }
+
+    @PatchMapping("/{urlId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UrlResponse> updateUrl(
+            @PathVariable Long urlId,
+            @Valid @RequestBody UrlUpdateRequest request,
+            @AuthenticationPrincipal JwtPrincipal principal) {
+
+        UrlResponse response = urlService.updateUrl(urlId, request, principal);
+        return ResponseEntity.ok(response);
     }
 }

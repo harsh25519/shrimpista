@@ -9,6 +9,7 @@ import bdj.hkb.urlShortner.stats.UrlStatsRepository;
 import bdj.hkb.urlShortner.url.dto.UrlCreateRequest;
 import bdj.hkb.urlShortner.url.dto.UrlDashboardResponse;
 import bdj.hkb.urlShortner.url.dto.UrlResponse;
+import bdj.hkb.urlShortner.url.dto.UrlUpdateRequest;
 import bdj.hkb.urlShortner.util.Base62Encoder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -145,9 +146,11 @@ public class UrlService {
         return userUrls.map(url -> {
             UrlStats stats = statsMap.get(url.getId());
             return new UrlDashboardResponse(
+                    url.getId(),
                     url.getShortCode(),
                     url.getTitle(),
                     url.getCreatedAt(),
+                    url.getExpiresAt(),
                     url.getIsActive()
             );
         });
@@ -195,6 +198,61 @@ public class UrlService {
     }
 
     // -------------------------------------------------------------------
+    // UPDATE URL (PATCH)
+    // -------------------------------------------------------------------
+    @Transactional
+    public UrlResponse updateUrl(Long urlId, UrlUpdateRequest request, JwtPrincipal principal) {
+
+        // 1. Fetch the URL
+        Url url = urlRepository.findById(urlId)
+                .orElseThrow(() -> new UrlNotFoundException("URL not found"));
+
+        // 2. Ownership Lock (Anonymous URLs cannot be updated)
+        if (url.getUserId() == null || !url.getUserId().equals(principal.userId())) {
+            throw new UrlNotFoundException("URL not found"); // Masked to prevent enumeration
+        }
+
+        // 3. Soft-Delete Guard
+        if (url.getDeletedAt() != null) {
+            throw new UrlNotFoundException("URL not found");
+        }
+
+        // 4. Update the core destination and hash (ONLY if it actually changed)
+        if (request.longUrl() != null && !url.getLongUrl().equals(request.longUrl())) {
+
+            // Optional: You could check if the NEW hash already exists for this user here
+            // to prevent them from creating duplicate destinations.
+
+            url.setLongUrl(request.longUrl());
+            url.setLongUrlHash(generateHash(request.longUrl()));
+
+            // CRITICAL: Evict the old destination from the fast-path Redis cache
+            redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode());
+            redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode() + REDIS_ID_SUFFIX);
+        }
+
+        // 5. Update optional metadata fields if provided
+        if (request.title() != null) {
+            url.setTitle(request.title());
+        }
+
+        if (request.isActive() != null) {
+            url.setIsActive(request.isActive());
+            // If they toggle it off, evict the cache so the redirect hits the DB and fails
+            if (!request.isActive()) {
+                redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode());
+                redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode() + REDIS_ID_SUFFIX);
+            }
+        }
+
+        if (request.expiresAt() != null) {
+            url.setExpiresAt(request.expiresAt());
+        }
+
+        return toResponse(url);
+    }
+
+    // -------------------------------------------------------------------
     // INTERNAL RECORD — returned by getLongUrl to controller
     // -------------------------------------------------------------------
     public record RedirectResult(
@@ -207,6 +265,7 @@ public class UrlService {
     // -------------------------------------------------------------------
     private UrlResponse toResponse(Url url) {
         return new UrlResponse(
+                url.getId(),
                 url.getShortCode(),
                 url.getLongUrl(),
                 url.getTitle(),
