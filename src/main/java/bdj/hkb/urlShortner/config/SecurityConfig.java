@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -17,6 +18,7 @@ import java.time.OffsetDateTime;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -48,6 +50,9 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
 
+                        // Admin Controller
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+
                         // Url controller
                         .requestMatchers(HttpMethod.GET, "/urls/{shortCode}").permitAll()
                         .requestMatchers(HttpMethod.POST, "/urls").permitAll()
@@ -56,13 +61,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/urls/**").hasRole("USER")
 
                         // Auth Controller
-                        .requestMatchers(HttpMethod.POST, "/auth/refresh","/auth/logout").hasAnyRole("ADMIN", "USER")
+                        .requestMatchers(HttpMethod.POST, "/auth/logout").hasAnyRole("ADMIN", "USER")
                         .requestMatchers(HttpMethod.POST, "/auth/**").permitAll()
 
                         .requestMatchers("/stats/**").hasAnyRole("USER","ADMIN")
                         .requestMatchers("/clicks/**").hasAnyRole("USER", "ADMIN")
 
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 // Inject your copied filter right before Spring's default auth filter
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
