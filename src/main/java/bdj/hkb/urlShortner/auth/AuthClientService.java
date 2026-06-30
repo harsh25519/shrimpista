@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @Service
@@ -129,8 +130,11 @@ public class AuthClientService {
             );
 
             return response.getBody();
-        } catch (HttpClientErrorException e) {
-            throw new AuthServiceException(e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            throw new AuthServiceException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Authentication service is unavailable."
+            );
         }
 
     }

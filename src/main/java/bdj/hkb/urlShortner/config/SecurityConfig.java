@@ -76,6 +76,7 @@ public class SecurityConfig {
                         // Auth Controller
                         .requestMatchers(HttpMethod.POST, "/auth/logout").hasAnyRole("ADMIN", "USER")
                         .requestMatchers(HttpMethod.POST, "/auth/**").permitAll()
+                        .requestMatchers("/oauth/**").permitAll()
 
                         .requestMatchers("/stats/**").hasAnyRole("USER","ADMIN")
                         .requestMatchers("/clicks/**").hasAnyRole("USER", "ADMIN")
