@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -32,7 +33,6 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // Disable CSRF for REST APIs
-                .cors(cors -> cors.configure(http))// Safe to disable for stateless APIs
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
                         // 401 — no authentication provided or token invalid/blacklisted
@@ -69,22 +69,27 @@ public class SecurityConfig {
                         // Url controller
                         .requestMatchers(HttpMethod.GET, "/urls/{shortCode}").permitAll()
                         .requestMatchers(HttpMethod.POST, "/urls").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/urls/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/urls/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/urls/**").hasRole("USER")
                         .requestMatchers(HttpMethod.PATCH, "/urls/**").hasRole("USER")
 
                         // Auth Controller
                         .requestMatchers(HttpMethod.POST, "/auth/logout").hasAnyRole("ADMIN", "USER")
-                        .requestMatchers(HttpMethod.POST, "/auth/**").permitAll()
+                        .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/oauth/**").permitAll()
 
+                        // Statistics
                         .requestMatchers("/stats/**").hasAnyRole("USER","ADMIN")
                         .requestMatchers("/clicks/**").hasAnyRole("USER", "ADMIN")
 
                         .anyRequest().authenticated()
                 )
-                // Inject your copied filter right before Spring's default auth filter
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.sameOrigin())
+                        .xssProtection(Customizer.withDefaults())
+                        .contentTypeOptions(Customizer.withDefaults())
+                );
 
         return http.build();
     }
@@ -93,7 +98,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:3000")); // Your frontend URL
-        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE"));
+        configuration.setAllowedMethods(List.of("OPTIONS","PUT"));
         configuration.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
