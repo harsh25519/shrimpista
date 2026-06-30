@@ -14,10 +14,10 @@ public class AuthController {
     private final AuthClientService authClientService;
 
     @PostMapping("/signup")
-    public ResponseEntity<AuthResponse> signup(
+    public ResponseEntity<MessageResponse> signup(
             @Valid @RequestBody UserSignupRequest request) {
-        AuthResponse response = authClientService.signup(request);
-        return ResponseEntity.status(201).body(response);
+        MessageResponse response = authClientService.signup(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/login")
@@ -27,12 +27,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/oauth-login")
-    public ResponseEntity<AuthResponse> oauthLogin(
-            @Valid @RequestBody OAuthLoginRequest request) {
-        AuthResponse response = authClientService.oauthLogin(request);
-        return ResponseEntity.ok(response);
-    }
 
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
@@ -47,4 +41,19 @@ public class AuthController {
         authClientService.logout(authHeader);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?>resendVarification(
+            @Valid @RequestBody ResendVerificationRequest request){
+        var response = authClientService.resendVerificationEmail(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<MessageResponse>forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request){
+        MessageResponse response = authClientService.requestPasswordReset(request);
+        return ResponseEntity.ok(response);
+    }
+
 }

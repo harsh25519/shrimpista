@@ -1,11 +1,14 @@
 package bdj.hkb.urlShortner.auth;
 
 import bdj.hkb.urlShortner.auth.dto.*;
+import bdj.hkb.urlShortner.auth.internalDto.AuthForgotPasswordRequest;
+import bdj.hkb.urlShortner.auth.internalDto.AuthResendVerificationRequest;
 import bdj.hkb.urlShortner.auth.internalDto.AuthServiceLoginRequest;
-import bdj.hkb.urlShortner.auth.internalDto.AuthServiceOAuthRequest;
 import bdj.hkb.urlShortner.auth.internalDto.AuthServiceSignupRequest;
 import bdj.hkb.urlShortner.exceptionHandler.AuthServiceException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -14,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthClientService {
 
     private final RestTemplate restTemplate;
@@ -30,7 +34,7 @@ public class AuthClientService {
     // -------------------------------------------------------------------
     // SIGNUP
     // -------------------------------------------------------------------
-    public AuthResponse signup(UserSignupRequest request) {
+    public MessageResponse signup(UserSignupRequest request) {
         // Inject server-side credentials before forwarding
         AuthServiceSignupRequest authRequest = new AuthServiceSignupRequest(
                 request.email(),
@@ -39,36 +43,20 @@ public class AuthClientService {
                 clientSecret
         );
 
-        return post("/auth/signup", authRequest, AuthResponse.class);
+        return post("/auth/signup", authRequest, MessageResponse.class);
     }
 
     // -------------------------------------------------------------------
     // LOGIN
     // -------------------------------------------------------------------
     public AuthResponse login(UserLoginRequest request) {
-        System.out.println("hahahahahha");
         AuthServiceLoginRequest authRequest = new AuthServiceLoginRequest(
                 request.email(),
                 request.password(),
                 clientId
         );
-        System.out.println("hahahahahha");
 
         return post("/auth/login", authRequest, AuthResponse.class);
-    }
-
-    // -------------------------------------------------------------------
-    // OAUTH LOGIN
-    // -------------------------------------------------------------------
-    public AuthResponse oauthLogin(OAuthLoginRequest request) {
-        AuthServiceOAuthRequest authRequest = new AuthServiceOAuthRequest(
-                request.token(),
-                request.authProvider(),
-                clientId,
-                clientSecret
-        );
-
-        return post("/auth/oauth-login", authRequest, AuthResponse.class);
     }
 
     // -------------------------------------------------------------------
@@ -96,7 +84,32 @@ public class AuthClientService {
             );
         } catch (HttpClientErrorException e) {
             // Token already expired or invalid — treat as successful logout
+            log.info("Logout ignored because token is already invalid.");
         }
+    }
+
+    // -------------------------------------------------------------------
+    // RESEND VERIFICATION EMAIL
+    // -------------------------------------------------------------------
+    public MessageResponse resendVerificationEmail(@Valid ResendVerificationRequest request) {
+        AuthResendVerificationRequest resendRequest = new AuthResendVerificationRequest(
+                request.email(),
+                clientId
+        );
+
+        return post("/auth/resend-verification", resendRequest, MessageResponse.class);
+    }
+
+    // -------------------------------------------------------------------
+    // RESET PASSWORD REQUEST
+    // -------------------------------------------------------------------
+    public MessageResponse requestPasswordReset(@Valid ForgotPasswordRequest request) {
+        AuthForgotPasswordRequest passwordRequest = new AuthForgotPasswordRequest(
+                request.email(),
+                clientId
+        );
+
+        return post("/auth/forgot-password", passwordRequest, MessageResponse.class);
     }
 
     // -------------------------------------------------------------------
@@ -104,7 +117,6 @@ public class AuthClientService {
     // -------------------------------------------------------------------
     private <T> T post(String path, Object body, Class<T> responseType) {
         try {
-            System.out.println("hahahahahha");
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Object> entity = new HttpEntity<>(body, headers);
@@ -115,13 +127,14 @@ public class AuthClientService {
                     entity,
                     responseType
             );
-            System.out.println("hahahahahha");
 
             return response.getBody();
         } catch (HttpClientErrorException e) {
             throw new AuthServiceException(e.getStatusCode(), e.getResponseBodyAsString());
         }
+
     }
+
 
 
 }
