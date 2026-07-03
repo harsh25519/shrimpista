@@ -84,8 +84,17 @@ public class AuthClientService {
                     Void.class
             );
         } catch (HttpClientErrorException e) {
-            // Token already expired or invalid — treat as successful logout
-            log.info("Logout ignored because token is already invalid.");
+            log.info(
+                    "Logout request ignored because auth service rejected the token (status={})",
+                    e.getStatusCode()
+            );
+        }
+        catch (RestClientException e) {
+            log.error("Failed to contact authentication service during logout", e);
+            throw new AuthServiceException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Authentication service is unavailable."
+            );
         }
     }
 
@@ -130,7 +139,26 @@ public class AuthClientService {
             );
 
             return response.getBody();
-        } catch (RestClientException e) {
+
+        } catch (HttpClientErrorException e) {
+            log.warn(
+                    "Auth service returned {} for {}",
+                    e.getStatusCode(),
+                    path
+            );
+
+            throw new AuthServiceException(
+                    e.getStatusCode(),
+                    e.getResponseBodyAsString()
+            );
+        }
+        catch (RestClientException e) {
+            log.error(
+                    "Unable to communicate with auth service while calling {}",
+                    path,
+                    e
+            );
+
             throw new AuthServiceException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Authentication service is unavailable."

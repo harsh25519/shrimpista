@@ -2,10 +2,7 @@ package bdj.hkb.urlShortner.url;
 
 import bdj.hkb.urlShortner.click.ClickIngestionService;
 import bdj.hkb.urlShortner.security.dto.JwtPrincipal;
-import bdj.hkb.urlShortner.url.dto.UrlCreateRequest;
-import bdj.hkb.urlShortner.url.dto.UrlDashboardResponse;
-import bdj.hkb.urlShortner.url.dto.UrlResponse;
-import bdj.hkb.urlShortner.url.dto.UrlUpdateRequest;
+import bdj.hkb.urlShortner.url.dto.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +43,7 @@ public class UrlController {
     public ResponseEntity<Void> redirect(
             @PathVariable String shortCode,
             HttpServletRequest request) {
-        UrlService.RedirectResult result = urlService.getLongUrl(shortCode);
+        RedirectResult result = urlService.getLongUrl(shortCode);
 
         // Async click tracking — non-blocking
         clickIngestionService.publishClickEvent(

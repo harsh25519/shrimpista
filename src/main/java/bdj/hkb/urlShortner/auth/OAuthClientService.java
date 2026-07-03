@@ -5,6 +5,7 @@ import bdj.hkb.urlShortner.auth.dto.OAuthProvider;
 import bdj.hkb.urlShortner.auth.internalDto.OAuthExchangeRequest;
 import bdj.hkb.urlShortner.exceptionHandler.AuthServiceException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OAuthClientService {
 
 
@@ -61,6 +63,8 @@ public class OAuthClientService {
 
             return response.getBody();
         } catch (RestClientException e) {
+            log.error("OAuth exchange request to auth-service failed", e);
+
             throw new AuthServiceException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Authentication service is unavailable."

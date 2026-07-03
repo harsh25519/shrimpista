@@ -6,12 +6,10 @@ import bdj.hkb.urlShortner.exceptionHandler.UrlNotFoundException;
 import bdj.hkb.urlShortner.security.dto.JwtPrincipal;
 import bdj.hkb.urlShortner.stats.UrlStats;
 import bdj.hkb.urlShortner.stats.UrlStatsRepository;
-import bdj.hkb.urlShortner.url.dto.UrlCreateRequest;
-import bdj.hkb.urlShortner.url.dto.UrlDashboardResponse;
-import bdj.hkb.urlShortner.url.dto.UrlResponse;
-import bdj.hkb.urlShortner.url.dto.UrlUpdateRequest;
+import bdj.hkb.urlShortner.url.dto.*;
 import bdj.hkb.urlShortner.util.Base62Encoder;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +29,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UrlService {
 
     private final UrlRepository urlRepository;
@@ -57,6 +56,11 @@ public class UrlService {
                 : urlRepository.findByLongUrlHashAndUserIdIsNull(urlHash);
 
         if (existingUrl.isPresent()) {
+            log.info(
+                    "User {} reused existing short code {}",
+                    userId,
+                    existingUrl.get().getShortCode()
+            );
             return toResponse(existingUrl.get());
         }
 
@@ -75,8 +79,8 @@ public class UrlService {
         // Derive short code from DB-assigned ID
         String shortCode = Base62Encoder.encode(newUrl.getId());
         newUrl.setShortCode(shortCode);
+        log.info("User:{} created short URL {}", newUrl.getUserId(), shortCode);
 
-        // Warm both cache keys — longUrl AND urlId
         Duration ttl = Duration.ofDays(cacheTtlDays);
         redisTemplate.opsForValue().set(REDIS_URL_PREFIX + shortCode,
                 request.longUrl(), ttl);
@@ -105,10 +109,12 @@ public class UrlService {
                 .orElseThrow(() -> new UrlNotFoundException("URL not found"));
 
         if (url.getDeletedAt() != null) {
+            log.warn("Long url for the short code:{} is disabled", shortCode);
             throw new UrlDisabledException("This link is no longer available");
         }
 
         if (url.getExpiresAt() != null && url.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            log.warn("The url for given short code:{} is expired",shortCode);
             throw new UrlExpiredException("This link has expired");
         }
 
@@ -165,11 +171,22 @@ public class UrlService {
                 .orElseThrow(() -> new UrlNotFoundException("URL not found"));
 
         if (url.getUserId() == null || !url.getUserId().equals(principal.userId())) {
+            log.warn(
+                    "User {} attempted to delete URL {} they do not own",
+                    principal.userId(),
+                    urlId
+            );
             throw new UrlNotFoundException("URL not found");
         }
 
         url.setDeletedAt(OffsetDateTime.now());
         url.setIsActive(false);
+
+        log.info(
+                "User {} deleted URL {}",
+                principal.userId(),
+                urlId
+        );
 
         // Evict from cache
         redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode());
@@ -185,10 +202,21 @@ public class UrlService {
                 .orElseThrow(() -> new UrlNotFoundException("URL not found"));
 
         if (url.getUserId() == null || !url.getUserId().equals(principal.userId())) {
+            log.warn(
+                    "User {} attempted to toggle URL {} they do not own",
+                    principal.userId(),
+                    urlId
+            );
             throw new UrlNotFoundException("URL not found");
         }
 
         url.setIsActive(!url.getIsActive());
+        log.info(
+                "User {} changed URL {} active status to {}",
+                principal.userId(),
+                urlId,
+                url.getIsActive()
+        );
 
         // Evict cache so next redirect re-checks DB state
         redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode());
@@ -205,15 +233,28 @@ public class UrlService {
 
         // 1. Fetch the URL
         Url url = urlRepository.findById(urlId)
-                .orElseThrow(() -> new UrlNotFoundException("URL not found"));
+                .orElseThrow(() -> {
+                    log.info("URL:{} cannot be found for updation", urlId);
+                    return new UrlNotFoundException("URL not found");
+                });
 
         // 2. Ownership Lock (Anonymous URLs cannot be updated)
         if (url.getUserId() == null || !url.getUserId().equals(principal.userId())) {
+            log.warn(
+                    "User {} attempted to update URL {} they do not own",
+                    principal.userId(),
+                    urlId
+            );
             throw new UrlNotFoundException("URL not found"); // Masked to prevent enumeration
         }
 
         // 3. Soft-Delete Guard
         if (url.getDeletedAt() != null) {
+            log.warn(
+                    "User {} tried access stats for deleted URL:{}",
+                    principal.userId(),
+                    url.getId()
+            );
             throw new UrlNotFoundException("URL not found");
         }
 
@@ -249,16 +290,15 @@ public class UrlService {
             url.setExpiresAt(request.expiresAt());
         }
 
+        log.info(
+                "User {} updated URL {}",
+                principal.userId(),
+                urlId
+        );
+
         return toResponse(url);
     }
 
-    // -------------------------------------------------------------------
-    // INTERNAL RECORD — returned by getLongUrl to controller
-    // -------------------------------------------------------------------
-    public record RedirectResult(
-            Long urlId,
-            String longUrl
-    ) {}
 
     // -------------------------------------------------------------------
     // HELPERS
@@ -286,6 +326,7 @@ public class UrlService {
             }
             return hexString.toString();
         } catch (Exception e) {
+            log.error("Failed to hash URL", e);
             throw new UrlNotFoundException("Error processing URL");
         }
     }
