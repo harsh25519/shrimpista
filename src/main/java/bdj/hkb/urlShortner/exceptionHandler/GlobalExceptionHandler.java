@@ -47,6 +47,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(UrlExpiredException.class)
     public ResponseEntity<ErrorResponse> handleUrlExpired(UrlExpiredException ex) {
+        log.warn("Url expired: {}", ex.getMessage());
         return buildResponse(HttpStatus.GONE, ex.getMessage());
     }
 

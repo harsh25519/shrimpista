@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      database: ${REDIS_DB}
+      timeout: 2s
+      ssl:
+        enabled: true
+
+
+jwt:
+  secret: ${JWT_SECRET}
+
+auth-service:
+  base-url: ${AUTH_BASE_URL}
+  client-id: ${AUTH_CLIENT_ID}
+  client-secret: ${AUTH_CLIENT_SECRET}
