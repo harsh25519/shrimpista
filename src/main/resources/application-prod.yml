@@ -9,11 +9,8 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       timeout: 2s
-      ssl:
-        enabled: true
-      sentinel:
-        username: ${REDIS_USERNAME}
-        password: ${REDIS_PASSWORD}
+      username: ${REDIS_USERNAME}
+      password: ${REDIS_PASSWORD}
 
 
 jwt:
