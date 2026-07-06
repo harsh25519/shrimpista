@@ -56,6 +56,9 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
 
+                        // -- Health --
+                        .requestMatchers("/ping").permitAll()
+
                         // ---Swagger---
                         .requestMatchers(
                                 "/v3/api-docs/**",
