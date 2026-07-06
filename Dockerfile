@@ -14,7 +14,7 @@ RUN mvn clean package -DskipTests -B
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
-COPY --from=build /app/target/urlShortener-*.jar app.jar
+COPY --from=build /app/target/urlShortner-*.jar app.jar
 
 EXPOSE 10020
 
