@@ -31,4 +31,4 @@ server:
 logging:
   level:
     root: INFO
-    bdj.hkb.urlShortner: INFO
+    bdj.hkb.urlShortner: DEBUG
