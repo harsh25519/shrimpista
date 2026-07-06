@@ -8,7 +8,7 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
-      timeout: 2s
+      timeout: 15s
       username: ${REDIS_USERNAME}
       password: ${REDIS_PASSWORD}
 
