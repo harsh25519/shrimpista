@@ -30,7 +30,7 @@ public class StatsAggregationService {
     private static final int BATCH_SIZE = 10000;
     private static final int CLEANUP_BATCH_SIZE = 1000;
 
-    @Scheduled(fixedDelay = 60000)
+    @Scheduled(fixedDelay = 3600000)
     @Transactional
     public void consumeClickEvents() {
         try {
