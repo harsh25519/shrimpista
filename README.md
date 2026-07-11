@@ -7,6 +7,8 @@ A production-inspired URL shortening service built with **Spring Boot** that sup
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-blue)
 ![Redis](https://img.shields.io/badge/Redis-Cloud-red)
 
+Live API:- [shirimpista Swagger](https://shrimpista.onrender.com/swagger-ui/index.html)
+
 ---
 
 ## Features
