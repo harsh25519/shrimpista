@@ -22,12 +22,9 @@ public class ClickEventReadService {
 
     public Page<ClickEventResponse> getClickHistory(String shortCode, JwtPrincipal principal,
                                                     int page, int size) {
-        // 1. Resolve shortCode to URL entity
         Url url = urlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new UrlNotFoundException("URL not found"));
 
-        // 2. Ownership check — only the URL owner can see its click history
-        //    Anonymous URLs (userId == null) are not accessible by anyone
         if (url.getUserId() == null || !url.getUserId().equals(principal.userId())) {
             log.warn(
                     "User {} attempted to access analytics for URL {} owned by {}",
@@ -38,12 +35,10 @@ public class ClickEventReadService {
             throw new AccessDeniedException("You don't have access to this URL's analytics");
         }
 
-        // 3. Soft-delete guard — deleted URLs shouldn't expose analytics
         if (url.getDeletedAt() != null) {
             throw new UrlNotFoundException("URL not found");
         }
 
-        // 4. Paginate click events
         PageRequest pageRequest = PageRequest.of(page, size,
                 Sort.by("clickedAt").descending());
 
@@ -58,10 +53,9 @@ public class ClickEventReadService {
                 size,
                 rawEvents.getNumberOfElements()
         );
-        // 5. Map to response DTO
         return rawEvents.map(event -> new ClickEventResponse(
                 event.getIpAddress(),
-                event.getUserAgent(),    // matches entity field name
+                event.getUserAgent(),
                 event.getReferrer(),
                 event.getClickedAt()
         ));

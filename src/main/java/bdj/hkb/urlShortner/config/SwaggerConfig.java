@@ -13,14 +13,12 @@ import org.springframework.context.annotation.Configuration;
 public class SwaggerConfig {
     @Bean
     public OpenAPI authServiceOpenAPI() {
-        // Define the security scheme (JWT Bearer Token)
         SecurityScheme securityScheme = new SecurityScheme()
                 .name("bearerAuth")
                 .type(SecurityScheme.Type.HTTP)
                 .scheme("bearer")
                 .bearerFormat("JWT");
 
-        // Apply the security scheme globally to all endpoints
         SecurityRequirement securityRequirement = new SecurityRequirement()
                 .addList("bearerAuth");
 

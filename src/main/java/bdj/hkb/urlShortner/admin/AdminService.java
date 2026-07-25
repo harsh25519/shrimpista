@@ -23,9 +23,7 @@ public class AdminService {
     private final UrlRepository urlRepository;
     private final StringRedisTemplate redisTemplate;
 
-    // -------------------------------------------------------------------
-    // GLOBAL VIEW: See all URLs across the entire system
-    // -------------------------------------------------------------------
+
     @Transactional(readOnly = true)
     public Page<AdminUrlResponse> getSystemUrls(int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -47,9 +45,6 @@ public class AdminService {
                 ));
     }
 
-    // -------------------------------------------------------------------
-    // GLOBAL KILL SWITCH: Deactivate any URL, regardless of owner
-    // -------------------------------------------------------------------
     @Transactional
     public void takeDownUrl(Long urlId) {
         Url url = urlRepository.findById(urlId)
@@ -63,7 +58,6 @@ public class AdminService {
                 url.getShortCode()
         );
 
-        // Instantly sever the fast-path routing
         try {
             redisTemplate.delete("url:route:" + url.getShortCode());
             redisTemplate.delete("url:route:" + url.getShortCode() + ":id");

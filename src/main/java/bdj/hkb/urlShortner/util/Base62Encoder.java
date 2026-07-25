@@ -20,13 +20,12 @@ public class Base62Encoder {
             id /= BASE;
         }
 
-        // The algorithm calculates the string backwards, so we must reverse it
         return sb.reverse().toString();
     }
 
     /**
      * Converts a Base62 Short Code (e.g., "cL") back to a database ID (e.g., 10025).
-     * This is useful if you ever want to look up a URL by decoding the string
+     * This is useful if ever want to look up a URL by decoding the string
      * mathematically rather than hitting a database index.
      */
     public static long decode(String shortCode) {

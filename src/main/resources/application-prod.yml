@@ -20,3 +20,6 @@ auth-service:
   base-url: ${AUTH_BASE_URL}
   client-id: ${AUTH_CLIENT_ID}
   client-secret: ${AUTH_CLIENT_SECRET}
+
+frontend:
+  redirect: ${FRONTEND_REDIRECT}

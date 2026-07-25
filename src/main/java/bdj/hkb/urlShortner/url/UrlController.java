@@ -23,9 +23,6 @@ public class UrlController {
     private final UrlService urlService;
     private final ClickIngestionService clickIngestionService;
 
-    // -------------------------------------------------------------------
-    // CORE API: Create Short Link (Requires Valid JWT)
-    // -------------------------------------------------------------------
     @PostMapping
     public ResponseEntity<UrlResponse> createShortLink(
             @Valid @RequestBody UrlCreateRequest request,
@@ -36,16 +33,13 @@ public class UrlController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // -------------------------------------------------------------------
-    // ROUTING ENGINE: Public Redirect (No Authentication Required)
-    // -------------------------------------------------------------------
+
     @GetMapping("/{shortCode}")
     public ResponseEntity<Void> redirect(
             @PathVariable String shortCode,
             HttpServletRequest request) {
         RedirectResult result = urlService.getLongUrl(shortCode);
 
-        // Async click tracking — non-blocking
         clickIngestionService.publishClickEvent(
                 result.urlId(),
                 request.getRemoteAddr(),

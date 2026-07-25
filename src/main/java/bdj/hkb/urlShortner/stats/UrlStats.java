@@ -19,7 +19,7 @@ import java.time.OffsetDateTime;
 public class UrlStats {
 
     @Id
-    @Column(name = "url_id") // Matches your database design (PK is also the FK)
+    @Column(name = "url_id")
     private Long urlId;
 
     @Column(name = "total_clicks", nullable = false)

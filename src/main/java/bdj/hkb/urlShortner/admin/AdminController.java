@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/admin")
 @RequiredArgsConstructor
-// THE VAULT DOOR: Rejects any JWT that does not contain the ADMIN role
 @PreAuthorize("hasAuthority('ADMIN') or hasRole('ADMIN')")
 public class AdminController {
 

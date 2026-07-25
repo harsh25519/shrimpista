@@ -3,6 +3,7 @@ package bdj.hkb.urlShortner.config;
 import bdj.hkb.urlShortner.security.JwtFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -31,10 +32,14 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
 
+    @Value("${frontend.redirect}")
+    private String frontendUrl;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable) // Disable CSRF for REST APIs
+                .cors(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
                         // 401 — no authentication provided or token invalid/blacklisted
@@ -58,6 +63,8 @@ public class SecurityConfig {
 
                         // -- Health --
                         .requestMatchers("/ping").permitAll()
+
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // ---Swagger---
                         .requestMatchers(
@@ -102,7 +109,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173")); // Your frontend URL
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173", frontendUrl));
         configuration.setAllowedMethods(List.of("GET",
                 "POST",
                 "PUT",
@@ -110,6 +117,8 @@ public class SecurityConfig {
                 "DELETE",
                 "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

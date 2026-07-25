@@ -14,17 +14,13 @@ public class ClickIngestionService {
 
     private final StringRedisTemplate redisTemplate;
 
-    // This is the name of our Redis List (our buffer)
     private static final String EVENT_QUEUE = "events:url:clicks";
 
     public void publishClickEvent(Long urlId, String ipAddress,
                                   String userAgent, String referrer) {
         String hashedIp = hashIp(ipAddress);
 
-        // HyperLogLog for unique visitors
 
-
-        // Queue for batch DB write
         String payload = String.format("%s|%s|%s|%s",
                 urlId,
                 hashedIp,

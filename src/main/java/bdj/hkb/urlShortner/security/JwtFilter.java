@@ -49,7 +49,6 @@ public class JwtFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                // Reject refresh tokens used as access tokens
                 if (!"access".equals(jwtUtilService.extractTokenType(jwt))) {
                     filterChain.doFilter(request, response);
                     return;
@@ -63,7 +62,6 @@ public class JwtFilter extends OncePerRequestFilter {
                         .map(SimpleGrantedAuthority::new)
                         .toList();
 
-                // If your record is: public record JwtPrincipal(UUID userId, UUID clientId) {}
                 JwtPrincipal principal = new JwtPrincipal(
                         UUID.fromString(userId),
                         UUID.fromString(clientId),
@@ -72,8 +70,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
-                                principal,   // identity — both userId and clientId
-                                null,        // credentials — null, already proven via signature
+                                principal,
+                                null,
                                 authorities
                         );
 

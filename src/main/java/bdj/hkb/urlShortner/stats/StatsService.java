@@ -26,11 +26,9 @@ public class StatsService {
 
     public StatsResponse getStatsSummary(String shortCode, JwtPrincipal principal) {
 
-        // 1. Resolve shortCode
         Url url = urlRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new UrlNotFoundException("URL not found"));
 
-        // 2. Ownership check
         if (url.getUserId() == null || !url.getUserId().equals(principal.userId())) {
             log.warn(
                     "User {} attempted to access stats for url {} they do not own",
@@ -40,7 +38,6 @@ public class StatsService {
             throw new AccessDeniedException("You don't have access to this URL's stats");
         }
 
-        // 3. Soft-delete guard
         if (url.getDeletedAt() != null) {
             log.warn(
                     "User {} attempted to access stats for deleted URL:{}",
@@ -50,7 +47,6 @@ public class StatsService {
             throw new UrlNotFoundException("URL not found");
         }
 
-        // 4. Fetch persisted stats from DB
         UrlStats stats = statsRepository.findById(url.getId())
                 .orElse(UrlStats.builder()
                         .urlId(url.getId())
@@ -60,7 +56,6 @@ public class StatsService {
                         .build());
 
 
-        // Safe — HyperLogLog is additive, not summed with DB value
         long liveUniqueVisitors = redisTemplate.opsForHyperLogLog()
                 .size(CLICK_UNIQUE_PREFIX + url.getId());
 
@@ -79,8 +74,8 @@ public class StatsService {
         return new StatsResponse(
                 shortCode,
                 url.getLongUrl(),
-                stats.getTotalClicks(),      // DB
-                Math.max(stats.getUniqueVisitors(), liveUniqueVisitors), // take the higher of the two
+                stats.getTotalClicks(),
+                Math.max(stats.getUniqueVisitors(), liveUniqueVisitors),
                 stats.getLastUpdatedAt()
         );
     }

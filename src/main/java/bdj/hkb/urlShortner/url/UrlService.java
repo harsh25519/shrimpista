@@ -40,17 +40,13 @@ public class UrlService {
     private static final String REDIS_ID_SUFFIX = ":id";
 
     @Value("${url.cache-ttl-days:7}")
-    private long cacheTtlDays; // Keep hot links in RAM for 7 days
+    private long cacheTtlDays;
 
-    // -------------------------------------------------------------------
-    // CREATE
-    // -------------------------------------------------------------------
     @Transactional
     public UrlResponse createShortLink(UrlCreateRequest request, UUID userId) {
 
         String urlHash = generateHash(request.longUrl());
 
-        // Scope lookup by userId — different users get their own short codes
         Optional<Url> existingUrl = userId != null
                 ? urlRepository.findByLongUrlHashAndUserId(urlHash, userId)
                 : urlRepository.findByLongUrlHashAndUserIdIsNull(urlHash);
@@ -64,7 +60,6 @@ public class UrlService {
             return toResponse(existingUrl.get());
         }
 
-        // Save with placeholder — flush forces DB to assign ID immediately
         Url newUrl = Url.builder()
                 .longUrl(request.longUrl())
                 .longUrlHash(urlHash)
@@ -76,7 +71,6 @@ public class UrlService {
 
         urlRepository.saveAndFlush(newUrl);
 
-        // Derive short code from DB-assigned ID
         String shortCode = Base62Encoder.encode(newUrl.getId());
         newUrl.setShortCode(shortCode);
         log.info("User:{} created short URL {}", newUrl.getUserId(), shortCode);
@@ -90,9 +84,7 @@ public class UrlService {
         return toResponse(newUrl);
     }
 
-    // -------------------------------------------------------------------
-    // REDIRECT — cache-aside, returns both urlId and longUrl
-    // -------------------------------------------------------------------
+
     public RedirectResult getLongUrl(String shortCode) {
         String cacheKey = REDIS_URL_PREFIX + shortCode;
         String idKey = cacheKey + REDIS_ID_SUFFIX;
@@ -104,7 +96,6 @@ public class UrlService {
             return new RedirectResult(Long.parseLong(cachedId), cachedUrl);
         }
 
-        // Cache miss — hit Postgres
         Url url = urlRepository.findByShortCodeAndIsActiveTrue(shortCode)
                 .orElseThrow(() -> new UrlNotFoundException("URL not found"));
 
@@ -118,7 +109,6 @@ public class UrlService {
             throw new UrlExpiredException("This link has expired");
         }
 
-        // Hydrate both cache keys
         Duration ttl = Duration.ofDays(cacheTtlDays);
         redisTemplate.opsForValue().set(cacheKey, url.getLongUrl(), ttl);
         redisTemplate.opsForValue().set(idKey, url.getId().toString(), ttl);
@@ -126,9 +116,6 @@ public class UrlService {
         return new RedirectResult(url.getId(), url.getLongUrl());
     }
 
-    // -------------------------------------------------------------------
-    // USER DASHBOARD — paginated, no deleted URLs, includes stats
-    // -------------------------------------------------------------------
     public Page<UrlDashboardResponse> getUserUrls(JwtPrincipal principal, int page, int size) {
 
         UUID userId = principal.userId();
@@ -138,7 +125,6 @@ public class UrlService {
         Page<Url> userUrls = urlRepository
                 .findAllByUserIdAndDeletedAtIsNull(userId, pageRequest);
 
-        // Batch fetch stats — avoids N+1
         List<Long> urlIds = userUrls.getContent()
                 .stream()
                 .map(Url::getId)
@@ -162,9 +148,7 @@ public class UrlService {
         });
     }
 
-    // -------------------------------------------------------------------
-    // SOFT DELETE
-    // -------------------------------------------------------------------
+
     @Transactional
     public void deleteUrl(Long urlId, JwtPrincipal principal) {
         Url url = urlRepository.findById(urlId)
@@ -188,14 +172,11 @@ public class UrlService {
                 urlId
         );
 
-        // Evict from cache
         redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode());
         redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode() + REDIS_ID_SUFFIX);
     }
 
-    // -------------------------------------------------------------------
-    // TOGGLE ACTIVE
-    // -------------------------------------------------------------------
+
     @Transactional
     public UrlResponse toggleActive(Long urlId, JwtPrincipal principal) {
         Url url = urlRepository.findById(urlId)
@@ -218,16 +199,13 @@ public class UrlService {
                 url.getIsActive()
         );
 
-        // Evict cache so next redirect re-checks DB state
         redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode());
         redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode() + REDIS_ID_SUFFIX);
 
         return toResponse(url);
     }
 
-    // -------------------------------------------------------------------
-    // UPDATE URL (PATCH)
-    // -------------------------------------------------------------------
+
     @Transactional
     public UrlResponse updateUrl(Long urlId, UrlUpdateRequest request, JwtPrincipal principal) {
 
@@ -238,17 +216,15 @@ public class UrlService {
                     return new UrlNotFoundException("URL not found");
                 });
 
-        // 2. Ownership Lock (Anonymous URLs cannot be updated)
         if (url.getUserId() == null || !url.getUserId().equals(principal.userId())) {
             log.warn(
                     "User {} attempted to update URL {} they do not own",
                     principal.userId(),
                     urlId
             );
-            throw new UrlNotFoundException("URL not found"); // Masked to prevent enumeration
+            throw new UrlNotFoundException("URL not found");
         }
 
-        // 3. Soft-Delete Guard
         if (url.getDeletedAt() != null) {
             log.warn(
                     "User {} tried access stats for deleted URL:{}",
@@ -258,28 +234,21 @@ public class UrlService {
             throw new UrlNotFoundException("URL not found");
         }
 
-        // 4. Update the core destination and hash (ONLY if it actually changed)
         if (request.longUrl() != null && !url.getLongUrl().equals(request.longUrl())) {
-
-            // Optional: You could check if the NEW hash already exists for this user here
-            // to prevent them from creating duplicate destinations.
 
             url.setLongUrl(request.longUrl());
             url.setLongUrlHash(generateHash(request.longUrl()));
 
-            // CRITICAL: Evict the old destination from the fast-path Redis cache
             redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode());
             redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode() + REDIS_ID_SUFFIX);
         }
 
-        // 5. Update optional metadata fields if provided
         if (request.title() != null) {
             url.setTitle(request.title());
         }
 
         if (request.isActive() != null) {
             url.setIsActive(request.isActive());
-            // If they toggle it off, evict the cache so the redirect hits the DB and fails
             if (!request.isActive()) {
                 redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode());
                 redisTemplate.delete(REDIS_URL_PREFIX + url.getShortCode() + REDIS_ID_SUFFIX);
@@ -299,10 +268,6 @@ public class UrlService {
         return toResponse(url);
     }
 
-
-    // -------------------------------------------------------------------
-    // HELPERS
-    // -------------------------------------------------------------------
     private UrlResponse toResponse(Url url) {
         return new UrlResponse(
                 url.getId(),

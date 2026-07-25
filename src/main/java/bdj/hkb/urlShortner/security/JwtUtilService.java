@@ -40,7 +40,6 @@ public class JwtUtilService {
         return extractClaim(token, claims -> claims.get("roles", List.class));
     }
 
-    // Extract any claim
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
@@ -56,7 +55,7 @@ public class JwtUtilService {
 
     public boolean validateToken(String token) {
         try {
-            extractAllClaims(token); // throws if invalid or expired
+            extractAllClaims(token);
             return true;
         } catch (Exception e) {
             return false;

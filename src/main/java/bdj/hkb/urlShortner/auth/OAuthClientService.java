@@ -31,10 +31,6 @@ public class OAuthClientService {
     private String clientSecret;
 
 
-    // -------------------------------------------------------------------
-    // Build the redirect URL to auth-service's /oauth/{provider}/start
-    // Frontend never sees clientId — this stays server-side
-    // -------------------------------------------------------------------
     public String buildProviderStartUrl(OAuthProvider provider) {
         return UriComponentsBuilder.fromUriString(authServiceBaseUrl)
                 .pathSegment("oauth", provider.name().toLowerCase(), "start")
@@ -42,9 +38,6 @@ public class OAuthClientService {
                 .toUriString();
     }
 
-    // -------------------------------------------------------------------
-    // Forward the bridge code to auth-service for the real token exchange
-    // -------------------------------------------------------------------
     public AuthResponse exchangeCode(String code) {
         OAuthExchangeRequest exchangeRequest =
                 new OAuthExchangeRequest(code, clientId, clientSecret);

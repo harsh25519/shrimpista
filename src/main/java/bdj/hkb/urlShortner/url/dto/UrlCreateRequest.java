@@ -8,6 +8,5 @@ public record UrlCreateRequest(
         @URL(message = "Must be a valid URL format")
         String longUrl,
 
-        // Optional: Let users name their links for the dashboard
         String title
 ) {}

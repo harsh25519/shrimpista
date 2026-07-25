@@ -37,7 +37,6 @@ public class StatsAggregationService {
             List<String> rawEvents = new ArrayList<>();
             String event;
 
-            // Safe atomic pop — no race condition unlike size() + range() + trim()
             while (rawEvents.size() < BATCH_SIZE &&
                     (event = redisTemplate.opsForList().leftPop(EVENT_QUEUE)) != null) {
                 rawEvents.add(event);
@@ -52,8 +51,8 @@ public class StatsAggregationService {
                 if (parts.length >= 4) {
                     try {
                         clickEvents.add(ClickEvent.builder()
-                                .urlId(Long.parseLong(parts[0]))   // urlId, not shortCode
-                                .ipAddress(parts[1])               // already hashed by ClickIngestionService
+                                .urlId(Long.parseLong(parts[0]))
+                                .ipAddress(parts[1])
                                 .userAgent(parts[2])
                                 .referrer(parts[3])
                                 .clickedAt(OffsetDateTime.now())
@@ -67,10 +66,8 @@ public class StatsAggregationService {
             if (clickEvents.isEmpty())
                 return;
 
-            // Batch insert raw click events
             clickRepository.saveAll(clickEvents);
 
-            // Group by urlId — one DB upsert per URL, not per click
             Map<Long, Long> clicksPerUrl = clickEvents.stream()
                     .collect(Collectors.groupingBy(
                             ClickEvent::getUrlId,
@@ -78,7 +75,6 @@ public class StatsAggregationService {
                     ));
 
             clicksPerUrl.forEach((urlId, count) -> {
-                // Fetch current unique visitor count from HyperLogLog
                 Long uniqueVisitors = redisTemplate.opsForHyperLogLog()
                         .size(CLICK_UNIQUE_PREFIX + urlId);
 

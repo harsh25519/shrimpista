@@ -14,7 +14,7 @@ public class TokenBlacklistService {
     private static final String PREFIX = "blacklist:";
 
     public void blacklist(String jti, long remainingMillis) {
-        if (remainingMillis <= 0) return; // already expired, nothing to blacklist
+        if (remainingMillis <= 0) return;
 
         redisTemplate.opsForValue().set(
                 PREFIX + jti,
