@@ -20,7 +20,7 @@ public class OAuthController {
 
     private final OAuthClientService oAuthClientService;
 
-    @Value("${frontend.redirect")
+    @Value("${frontend.redirect}")
     private String frontend;
 
 
