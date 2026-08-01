@@ -51,7 +51,7 @@ public class OAuthController {
                 .build();
 
         return ResponseEntity.status(HttpStatus.FOUND)
-                .location(URI.create(frontend + "/dashboard"))
+                .location(URI.create(frontend + "dashboard"))
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .build();
